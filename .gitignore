@@ -1,0 +1,12 @@
+/*
+!/app
+!/app-2.11
+!/conf
+!/public
+!/test
+!/test-2.11
+!build.sbt
+!/*.md
+!.gitignore
+!LICENSE
+!.travis.yml
