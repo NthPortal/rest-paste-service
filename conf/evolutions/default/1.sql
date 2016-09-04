@@ -1,0 +1,23 @@
+# --- !Ups
+
+create table "READ_DATA" (
+  "READ_ID" VARCHAR(254) PRIMARY KEY NOT NULL,
+  "TITLE" VARCHAR(254) DEFAULT null,
+  "AUTHOR" VARCHAR(254) DEFAULT null,
+  "DESCRIPTION" VARCHAR(254) DEFAULT null,
+  "EXPIRATION" INTEGER DEFAULT null,
+  "EDITABLE" INTEGER DEFAULT 1 NOT NULL,
+  "DELETABLE" INTEGER DEFAULT 1 NOT NULL
+);
+
+create table "WRITE_DATA" (
+  "WRITE_ID" VARCHAR(254) PRIMARY KEY NOT NULL,
+  "READ_ID" VARCHAR(254) NOT NULL,
+  constraint "READ_DATA_FK" foreign key("READ_ID") references "READ_DATA"("READ_ID") on update RESTRICT on delete CASCADE
+);
+
+# --- !Downs
+
+drop table "READ_DATA";
+
+drop table "WRITE_DATA";
