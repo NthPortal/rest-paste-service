@@ -1,11 +1,12 @@
 package controllers
 
-import java.io.{File, PrintWriter}
+import java.io.PrintWriter
 import javax.inject.{Inject, Singleton}
 
 import io.github.nthportal.paste.api.{Paste, PasteIds, PasteLifecycleInfo, PasteMetadata}
 import io.github.nthportal.paste.core._
 import models.{PasteData, PasteDatum, PasteWriteData}
+import org.apache.commons.io.FileUtils
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc._
 
@@ -16,10 +17,12 @@ import scala.util.Try
 
 @Singleton
 class PasteController @Inject()(manager: Manager, idManager: IdManager) extends Controller {
+
   import PasteController._
   import manager.dbConfig.driver.api._
 
   private val db = manager.db
+  private val pathConf = manager.pathConf
 
   def createPaste = Action.async(parse.json) {
     implicit request => {
@@ -30,7 +33,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   def modifyPaste(writeId: String) = Action.async(parse.json) {
     implicit request => {
       for (datum <- dataForWriteId(writeId))
-      yield modifyPasteGetData(datum, request)
+        yield modifyPasteGetData(datum, request)
     } recover {
       case _ => NotFound
     }
@@ -47,7 +50,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
     } else if (lifecycle.expiresAfter.getOrElse(0L) > datum.unixExpiration.getOrElse(Long.MaxValue)) {
       Forbidden("Cannot make paste expire later")
     } else if (!lifecycle.deletable.getOrElse(true) && lifecycle.editable.getOrElse(true)) {
-      UnprocessableEntity("Cannot prevent deletion of paste if it is still editable")
+      UnprocessableEntity("Cannot prevent deletion of paste if it is editable")
     } else {
       doModifyPaste(datum, paste)
     }
@@ -78,7 +81,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
 
   def pasteForWriteId(writeId: String) = Action.async({
     for {
-      datum <-dataForWriteId(writeId)
+      datum <- dataForWriteId(writeId)
     } yield getPasteFromFile(datum)
   } recover {
     case _ => NotFound
@@ -86,7 +89,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
 
   private def dataForWriteId(writeId: String): Future[PasteDatum] =
     for {
-      writeOpt <- db.run(PasteWriteData.withWriteId(writeId))
+      writeOpt <- db.run(PasteWriteData.getWithWriteId(writeId))
       writeInfo <- Future.fromTry(Try(writeOpt.get))
       datum <- dataForReadId(writeInfo.readId)
     } yield datum
@@ -94,22 +97,40 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   private def dataForReadId(readId: String): Future[PasteDatum] =
   // TODO: check expiration
     for {
-      datumOpt <- db.run(PasteData.withReadId(readId))
+      datumOpt <- db.run(PasteData.getWithReadId(readId))
       datum <- Future.fromTry(Try(datumOpt.get))
     } yield datum
 
   private def getPasteFromFile(datum: PasteDatum): Result = {
-    val body = Source.fromFile(manager.pathConf.pasteDir + File.separator + datum.readId).mkString
+    val body = Source.fromFile(pathConf.pasteFile(datum.readId)).mkString
     val paste = Paste.fromDatumWithBody(datum, body)
     Ok(Json.toJson(paste))
   }
 
-  def deletePaste(writeId: String) = TODO
+  def deletePaste(writeId: String) = Action.async({
+    for {
+      datum <- dataForWriteId(writeId)
+      res <- deletePasteCheckPreconditions(datum)
+    } yield res
+  } recover {
+    case _ => NotFound
+  })
+
+  private def deletePasteCheckPreconditions(datum: PasteDatum): Future[Result] = {
+    if (!datum.deletable) Future.successful(Forbidden("Paste is not deletable"))
+    else deletePasteData(datum)
+  }
+
+  private def deletePasteData(datum: PasteDatum): Future[Result] =
+    for {
+      _ <- db.run(PasteData.withReadId(datum.readId).delete)
+      _ = FileUtils.forceDelete(pathConf.pasteFile(datum.readId))
+    } yield NoContent
 
   private def createNewPaste(paste: Paste): Future[Result] = {
     for {
       pair <- idManager.unusedRandomIdPair
-      _ = new PrintWriter(manager.pathConf.pasteDir + File.separator + pair.readId) {
+      _ = new PrintWriter(pathConf.pasteFile(pair.readId)) {
         write(paste.body)
         close()
       }

@@ -10,4 +10,6 @@ class PathConf @Inject() (configuration: Configuration) {
   val confFilePath = baseDir + File.separator + "conf.json"
   val pasteDir = baseDir + File.separator + "pastes"
   val dbDir = baseDir + File.separator + "data"
+
+  def pasteFile(pasteReadId: String): File = new File(pasteDir + File.separator + pasteReadId)
 }

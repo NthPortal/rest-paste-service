@@ -12,6 +12,6 @@ class PasteWriteData(tag: Tag) extends Table[IdPair](tag, "WRITE_DATA") {
 }
 
 object PasteWriteData extends TableQuery[PasteWriteData](new PasteWriteData(_)) {
-  def withWriteId(writeId: String) = filter(_.writeId === writeId).result.headOption
+  def getWithWriteId(writeId: String) = filter(_.writeId === writeId).result.headOption
   def ids = map(_.writeId).result
 }

@@ -15,6 +15,7 @@ class PasteData(tag: Tag) extends Table[PasteDatum](tag, "READ_DATA") {
 }
 
 object PasteData extends TableQuery[PasteData](new PasteData(_)) {
-  def withReadId(readId: String) = filter(_.readId === readId).result.headOption
+  def withReadId(readId: String) = filter(_.readId === readId)
+  def getWithReadId(readId: String) = withReadId(readId).result.headOption
   def ids = map(_.readId).result
 }
