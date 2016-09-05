@@ -10,6 +10,7 @@ import models.{PasteData, PasteDatum, PasteWriteData}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.Json
 import play.api.mvc._
+import resource._
 
 import scala.concurrent.Future
 import scala.io.Source
@@ -206,10 +207,7 @@ object PasteController {
   implicit val idsWrites = Json.writes[PasteIds]
 
   private def writeToFile(file: File, content: String): Unit = {
-    new PrintWriter(file) {
-      write(content)
-      close()
-    }
+    for (writer <- managed(new PrintWriter(file))) writer.write(content)
   }
 
   private def futureFromOption[T](option: Option[T]): Future[T] = Future.fromTry(Try(option.get))

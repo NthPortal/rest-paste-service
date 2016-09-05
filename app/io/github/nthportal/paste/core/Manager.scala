@@ -10,6 +10,7 @@ import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.Json
+import resource._
 import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
@@ -37,7 +38,7 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
       case t: Throwable => Logger.error("Unknown error reading configuration file", t); throw t
     } getOrElse Conf()
 
-  writeConfigIfNotExists()
+  writeConfig(config, pathConf.confFilePath, overwrite = false)
 
   def deletePasteFileLater(revisionId: String): Future[Unit] = {
     for {
@@ -46,17 +47,13 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
     } yield Unit
   }
 
-  private def writeConfigIfNotExists(): Unit = {
-    val file = new File(pathConf.confFilePath)
-    if (!file.exists()) {
+  private def writeConfig(conf: Conf, path: String, overwrite: Boolean = false): Unit = {
+    val file = new File(path)
+    if (overwrite || !file.exists()) {
       try {
-        new PrintWriter(pathConf.confFilePath) {
-          Json.format[Conf]
-          write(Json.prettyPrint(Json.toJson(config)))
-          close()
-        }
+        for (writer <- managed(new PrintWriter(file))) writer.write(Json.prettyPrint(Json.toJson(conf)))
       } catch {
-        case e: IOException => Logger.error("I/O Exception writing configuration file", e)
+        case e: IOException => Logger.error("I/O exception writing configuration file at " + path, e)
       }
     }
   }
