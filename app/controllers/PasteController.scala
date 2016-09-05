@@ -5,6 +5,7 @@ import javax.inject.{Inject, Singleton}
 
 import io.github.nthportal.paste.api.{Paste, PasteIds, PasteLifecycleInfo, PasteMetadata}
 import io.github.nthportal.paste.core._
+import io.github.nthportal.paste.core.conf.Limits
 import models.{PasteData, PasteDatum, PasteWriteData}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.Json
@@ -21,6 +22,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   import manager.dbConfig.driver.api._
 
   private val db = manager.db
+  private val conf = manager.config
   private val pathConf = manager.pathConf
 
   def createPaste = Action.async(parse.json) {
@@ -30,7 +32,8 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   }
 
   private def createPasteCheckPreconditions(paste: Paste): Future[Result] = {
-    checkLifecyclePreconditions(paste) getOrElse doCreatePaste(paste)
+    // TODO: get limits based on authentication
+    checkPreconditions(paste, conf.perIPLimits) getOrElse doCreatePaste(paste)
   }
 
   private def doCreatePaste(paste: Paste): Future[Result] = {
@@ -64,8 +67,12 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   }
 
   private def modifyPasteCheckPreconditions(datum: PasteDatum, paste: Paste): Future[Result] = {
-    if (!datum.editable) Future.successful(Forbidden("Paste is not editable"))
-    else checkLifecyclePreconditions(paste) getOrElse doModifyPaste(datum, paste)
+    if (!datum.editable){
+      Future.successful(Forbidden("Paste is not editable"))
+    } else {
+      // TODO: get limits based on authentication
+      checkPreconditions(paste, conf.perIPLimits) getOrElse doModifyPaste(datum, paste)
+    }
   }
 
   private def doModifyPaste(oldDatum: PasteDatum, paste: Paste): Future[Result] = {
@@ -85,6 +92,33 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
       _ <- db.run(PasteData.update(newDatum))
       _ <- manager.deletePasteFileLater(oldDatum.revisionId)
     } yield Created("Updated paste")
+  }
+
+  private def checkPreconditions(paste: Paste, limits: Limits): Option[Future[Result]] = {
+    checkPasteDataLimits(paste, limits)
+      .orElse(checkUserLimits(limits))
+      .orElse(checkLifecyclePreconditions(paste))
+  }
+
+  private def checkPasteDataLimits(paste: Paste, limits: Limits): Option[Future[Result]] = {
+    val metadata = paste.metadata
+    if (limits.maxPasteSizeKB.isDefined && paste.body.length > limits.maxPasteSizeKB.get) {
+      Some(Future.successful(EntityTooLarge("Paste body too large - max size is " + limits.maxPasteSizeKB + "kB")))
+    } else {
+      checkLengthLimit(conf.static.maxTitleLengthChars, metadata.title, "title")
+        .orElse(checkLengthLimit(conf.static.maxAuthorLengthChars, metadata.author, "author"))
+        .orElse(checkLengthLimit(conf.static.maxDescriptionLengthChars, metadata.description, "description"))
+    }
+  }
+
+  private def checkLengthLimit(limit: Int, field: Option[String], fieldName: String): Option[Future[Result]] = {
+    if (field.isDefined && field.get.length > limit) {
+      Some(Future.successful(EntityTooLarge("Paste " + fieldName + " too long - max length is " + limit + " characters")))
+    } else None
+  }
+
+  private def checkUserLimits(limits: Limits): Option[Future[Result]] = {
+    None // TODO: implement
   }
 
   private def checkLifecyclePreconditions(paste: Paste): Option[Future[Result]] = {

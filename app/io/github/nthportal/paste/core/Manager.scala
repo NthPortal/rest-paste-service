@@ -4,7 +4,7 @@ import java.io.{File, FileNotFoundException, IOException, PrintWriter}
 import javax.inject.{Inject, Singleton}
 
 import com.fasterxml.jackson.core.JsonProcessingException
-import io.github.nthportal.paste.core.conf.{Conf, PathConf}
+import io.github.nthportal.paste.core.conf.{Conf, Limits, PathConf}
 import models.DeadPasteFiles
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
@@ -18,7 +18,9 @@ import scala.util.Try
 
 @Singleton
 class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfigProvider) {
-  implicit private val confFormat = Json.format[Conf]
+
+  import Manager._
+
   val dbConfig = dbConfigProvider.get[JdbcProfile]
   val db = dbConfig.db
 
@@ -27,7 +29,7 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
   val config: Conf =
     Try {
       val confStr = Source.fromFile(pathConf.confFilePath).mkString
-      Json.fromJson[Conf](Json.parse(confStr)).get
+      confFormat.reads(Json.parse(confStr)).get
     } recover {
       case e: FileNotFoundException => Logger.warn("Missing configuration file"); throw e
       case e: JsonProcessingException => Logger.error("Poorly formatted configuration file", e); throw e
@@ -58,4 +60,9 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
       }
     }
   }
+}
+
+object Manager {
+  implicit private val limitsFormat = Json.format[Limits]
+  implicit private val confFormat = Json.format[Conf]
 }
