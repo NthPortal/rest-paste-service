@@ -1,6 +1,7 @@
 package io.github.nthportal.paste.core.conf
 
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 import play.api.Configuration
@@ -11,5 +12,5 @@ class PathConf @Inject() (configuration: Configuration) {
   val pasteDir = baseDir + File.separator + "pastes"
   val dbDir = baseDir + File.separator + "data"
 
-  def pasteFile(pasteReadId: String): File = new File(pasteDir + File.separator + pasteReadId)
+  def pasteFile(revision: UUID): File = new File(pasteDir + File.separator + revision)
 }

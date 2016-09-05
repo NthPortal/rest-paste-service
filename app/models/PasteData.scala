@@ -1,17 +1,21 @@
 package models
 
+import java.util.UUID
+
 import slick.driver.SQLiteDriver.api._
 import slick.lifted.Tag
 
 class PasteData(tag: Tag) extends Table[PasteDatum](tag, "READ_DATA") {
   def readId = column[String]("READ_ID", O.PrimaryKey)
+  def fileRevision = column[UUID]("FILE_REVISION")
   def title = column[Option[String]]("TITLE", O.Default(None))
   def author = column[Option[String]]("AUTHOR", O.Default(None))
   def description = column[Option[String]]("DESCRIPTION", O.Default(None))
   def unixExpiration = column[Option[Long]]("EXPIRATION", O.Default(None))
   def editable = column[Boolean]("EDITABLE", O.Default(true))
   def deletable = column[Boolean]("DELETABLE", O.Default(true))
-  def * = (readId, title, author, description, unixExpiration, editable, deletable) <> (PasteDatum.tupled, PasteDatum.unapply)
+  def * = (readId, fileRevision, title, author, description, unixExpiration, editable, deletable) <>
+    (PasteDatum.tupled, PasteDatum.unapply)
 }
 
 object PasteData extends TableQuery[PasteData](new PasteData(_)) {

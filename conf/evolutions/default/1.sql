@@ -2,6 +2,7 @@
 
 create table "READ_DATA" (
   "READ_ID" VARCHAR(254) PRIMARY KEY NOT NULL,
+  "FILE_REVISION" BLOB NOT NULL,
   "TITLE" VARCHAR(254) DEFAULT null,
   "AUTHOR" VARCHAR(254) DEFAULT null,
   "DESCRIPTION" VARCHAR(254) DEFAULT null,
@@ -16,8 +17,14 @@ create table "WRITE_DATA" (
   constraint "READ_DATA_FK" foreign key("READ_ID") references "READ_DATA"("READ_ID") on update RESTRICT on delete CASCADE
 );
 
+create table "DEAD_PASTES" (
+  "DEAD_REVISION" BLOB PRIMARY KEY NOT NULL
+);
+
 # --- !Downs
 
 drop table "READ_DATA";
 
 drop table "WRITE_DATA";
+
+drop table "DEAD_PASTES";

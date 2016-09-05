@@ -1,12 +1,12 @@
 package controllers
 
 import java.io.{File, PrintWriter}
+import java.util.UUID
 import javax.inject.{Inject, Singleton}
 
 import io.github.nthportal.paste.api.{Paste, PasteIds, PasteLifecycleInfo, PasteMetadata}
 import io.github.nthportal.paste.core._
 import models.{PasteData, PasteDatum, PasteWriteData}
-import org.apache.commons.io.FileUtils
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.Json
 import play.api.mvc._
@@ -26,18 +26,23 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
 
   def createPaste = Action.async(parse.json) {
     implicit request => {
-      for (paste <- pasteFormat.reads(request.body)) yield createNewPaste(paste)
+      for (paste <- pasteFormat.reads(request.body)) yield createPasteCheckPreconditions(paste)
     } getOrElse Future.successful(BadRequest)
   }
 
-  private def createNewPaste(paste: Paste): Future[Result] = {
+  private def createPasteCheckPreconditions(paste: Paste): Future[Result] = {
+    checkLifecyclePreconditions(paste) getOrElse doCreatePaste(paste)
+  }
+
+  private def doCreatePaste(paste: Paste): Future[Result] = {
     for {
       pair <- idManager.unusedRandomIdPair()
-      _ = writeToFile(pathConf.pasteFile(pair.readId), paste.body)
-      datum = paste.toDatumWithId(pair.readId)
-      _ <- db.run(PasteData.insertOrUpdate(datum))
+      revision = UUID.randomUUID()
+      _ = writeToFile(pathConf.pasteFile(revision), paste.body)
+      datum = paste.toDatumWithIds(pair.readId, revision)
+      _ <- db.run(PasteData += datum)
       deletable = paste.lifecycle.deletable.getOrElse(true)
-      _ <- if (deletable) db.run(PasteWriteData.insertOrUpdate(pair)) else Future.successful(null)
+      _ <- if (deletable) db.run(PasteWriteData += pair) else Future.successful(null)
     } yield {
       val writeId = if (deletable) Some(pair.writeId) else None
       Ok(idsWrites.writes(PasteIds(pair.readId, writeId)))
@@ -60,31 +65,33 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   }
 
   private def modifyPasteCheckPreconditions(datum: PasteDatum, paste: Paste): Future[Result] = {
-    val lifecycle = paste.lifecycle
-    if (!datum.editable) {
-      Future.successful(Forbidden("Paste is not editable"))
-    } else if (!lifecycle.deletable.getOrElse(true) && lifecycle.editable.getOrElse(true)) {
-      Future.successful(UnprocessableEntity("Cannot prevent deletion of paste if it is editable"))
-    } else {
-      doModifyPaste(datum, paste)
-    }
+    if (!datum.editable) Future.successful(Forbidden("Paste is not editable"))
+    else checkLifecyclePreconditions(paste) getOrElse doModifyPaste(datum, paste)
   }
 
-  private def doModifyPaste(datum: PasteDatum, paste: Paste): Future[Result] = {
+  private def doModifyPaste(oldDatum: PasteDatum, paste: Paste): Future[Result] = {
     val metadata = paste.metadata
     val lifecycle = paste.lifecycle
-    val newDatum = datum.copy(
-      title = metadata.title orElse datum.title,
-      author = metadata.author orElse datum.author,
-      description = metadata.description orElse datum.description,
-      deletable = lifecycle.deletable getOrElse datum.deletable,
-      editable = lifecycle.editable getOrElse datum.editable,
-      unixExpiration = lifecycle.expiresAfter orElse datum.unixExpiration)
+    val newDatum = oldDatum.copy(
+      revision = UUID.randomUUID(),
+      title = metadata.title orElse oldDatum.title,
+      author = metadata.author orElse oldDatum.author,
+      description = metadata.description orElse oldDatum.description,
+      deletable = lifecycle.deletable getOrElse oldDatum.deletable,
+      editable = lifecycle.editable getOrElse oldDatum.editable,
+      unixExpiration = lifecycle.expiresAfter orElse oldDatum.unixExpiration)
 
-    writeToFile(pathConf.pasteFile(datum.readId), paste.body)
+    writeToFile(pathConf.pasteFile(newDatum.revision), paste.body)
     for {
       _ <- db.run(PasteData.update(newDatum))
+      _ <- manager.deletePasteFileLater(oldDatum.revision)
     } yield Created("Updated paste")
+  }
+
+  private def checkLifecyclePreconditions(paste: Paste): Option[Future[Result]] = {
+    if (!paste.lifecycle.deletable.getOrElse(true) && paste.lifecycle.editable.getOrElse(true)) {
+      Some(Future.successful(UnprocessableEntity("Cannot prevent deletion of paste if it is editable")))
+    } else None
   }
 
   def pasteForReadId(readId: String) = Action.async({
@@ -131,7 +138,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   }
 
   private def getPasteFromFile(datum: PasteDatum): Result = {
-    val body = Source.fromFile(pathConf.pasteFile(datum.readId)).mkString
+    val body = Source.fromFile(pathConf.pasteFile(datum.revision)).mkString
     val paste = Paste.fromDatumWithBody(datum, body)
     Ok(Json.toJson(paste))
   }
@@ -147,14 +154,16 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
 
   private def deletePasteCheckPreconditions(datum: PasteDatum): Future[Result] = {
     if (!datum.deletable) Future.successful(Forbidden("Paste is not deletable"))
-    else deletePasteData(datum)
+    else doDeletePaste(datum)
   }
 
-  private def deletePasteData(datum: PasteDatum): Future[Result] =
+  private def doDeletePaste(datum: PasteDatum): Future[Result] = for (_ <- deletePasteData(datum)) yield NoContent
+
+  private def deletePasteData(datum: PasteDatum): Future[Unit] =
     for {
       _ <- db.run(PasteData.withReadId(datum.readId).delete)
-      _ = FileUtils.forceDelete(pathConf.pasteFile(datum.readId))
-    } yield NoContent
+      _ <- manager.deletePasteFileLater(datum.revision)
+    } yield Unit
 }
 
 object PasteController {

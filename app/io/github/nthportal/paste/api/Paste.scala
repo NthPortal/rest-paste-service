@@ -1,11 +1,14 @@
 package io.github.nthportal.paste.api
 
+import java.util.UUID
+
 import models.PasteDatum
 
 case class Paste(metadata: PasteMetadata, lifecycle: PasteLifecycleInfo, body: String) {
-  def toDatumWithId(readId: String) = {
+  def toDatumWithIds(readId: String, revision: UUID) = {
     PasteDatum(
       readId = readId,
+      revision = revision,
       title = metadata.title,
       author = metadata.author,
       description = metadata.description,

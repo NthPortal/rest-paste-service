@@ -1,15 +1,19 @@
 package io.github.nthportal.paste.core
 
 import java.io.{File, FileNotFoundException, IOException, PrintWriter}
+import java.util.UUID
 import javax.inject.{Inject, Singleton}
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import io.github.nthportal.paste.core.conf.{Conf, PathConf}
+import models.DeadPasteFiles
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.Json
 import slick.driver.JdbcProfile
 
+import scala.concurrent.Future
 import scala.io.Source
 import scala.util.Try
 
@@ -18,6 +22,8 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
   implicit private val confFormat = Json.format[Conf]
   val dbConfig = dbConfigProvider.get[JdbcProfile]
   val db = dbConfig.db
+
+  import dbConfig.driver.api._
 
   val config: Conf =
     Try {
@@ -31,6 +37,13 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
     } getOrElse Conf()
 
   writeConfigIfNotExists()
+
+  def deletePasteFileLater(fileRevision: UUID): Future[Unit] = {
+    for {
+      _ <- db.run(DeadPasteFiles += fileRevision)
+    // TODO: put it somewhere else as well? (and like, actually delete it)
+    } yield Unit
+  }
 
   private def writeConfigIfNotExists(): Unit = {
     val file = new File(pathConf.confFilePath)
