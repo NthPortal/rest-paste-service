@@ -91,7 +91,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   })
 
   private def getPasteFromFile(datum: PasteDatum): Result = {
-    val body = Source.fromFile(Conf.pasteDir + File.separator + datum.readId).mkString
+    val body = Source.fromFile(manager.pathConf.pasteDir + File.separator + datum.readId).mkString
     val paste = Paste.fromDatumWithBody(datum, body)
     Ok(Json.toJson(paste))
   }
@@ -101,7 +101,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   private def createNewPaste(paste: Paste): Future[Result] = {
     for {
       pair <- idManager.unusedRandomIdPair
-      _ = new PrintWriter(Conf.pasteDir + File.separator + pair.readId) {
+      _ = new PrintWriter(manager.pathConf.pasteDir + File.separator + pair.readId) {
         write(paste.body)
         close()
       }

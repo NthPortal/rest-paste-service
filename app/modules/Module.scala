@@ -3,27 +3,27 @@ package modules
 import java.io.{File, IOException}
 
 import com.google.inject.AbstractModule
-import io.github.nthportal.paste.core.Conf
+import io.github.nthportal.paste.core.conf.PathConf
 import org.apache.commons.io.FileUtils
-import play.api.Logger
+import play.api.{Configuration, Environment, Logger}
 
 /**
   * Ensure directories for service are created before the application is loaded.
   */
-class Module extends AbstractModule {
+class Module(env: Environment, cfg: Configuration) extends AbstractModule {
   override def configure(): Unit = {
     ensureDirectoriesExist()
   }
 
-  private def ensureDirectoriesExist(): Boolean = {
+  private def ensureDirectoriesExist(): Unit = {
+    val pathConf = new PathConf(cfg)
     try {
-      FileUtils.forceMkdir(new File(Conf.dbDir))
-      FileUtils.forceMkdir(new File(Conf.pasteDir))
-      true
+      FileUtils.forceMkdir(new File(pathConf.dbDir))
+      FileUtils.forceMkdir(new File(pathConf.pasteDir))
     } catch {
       case e: IOException =>
         Logger.error("Unable to create core directories", e)
-        false
+        throw e
       case t: Throwable => throw t
     }
   }

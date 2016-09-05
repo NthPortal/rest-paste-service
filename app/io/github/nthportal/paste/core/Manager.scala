@@ -4,6 +4,7 @@ import java.io.{File, FileNotFoundException, IOException, PrintWriter}
 import javax.inject.{Inject, Singleton}
 
 import com.fasterxml.jackson.core.JsonProcessingException
+import io.github.nthportal.paste.core.conf.{Conf, PathConf}
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.json.Json
@@ -13,12 +14,14 @@ import scala.io.Source
 import scala.util.Try
 
 @Singleton
-class Manager @Inject()(dbConfigProvider: DatabaseConfigProvider) {
+class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfigProvider) {
   implicit private val confFormat = Json.format[Conf]
+  val dbConfig = dbConfigProvider.get[JdbcProfile]
+  val db = dbConfig.db
 
   val config: Conf =
     Try {
-      val confStr = Source.fromFile(Conf.confFilePath).mkString
+      val confStr = Source.fromFile(pathConf.confFilePath).mkString
       Json.fromJson[Conf](Json.parse(confStr)).get
     } recover {
       case e: FileNotFoundException => Logger.warn("Missing configuration file"); throw e
@@ -28,14 +31,11 @@ class Manager @Inject()(dbConfigProvider: DatabaseConfigProvider) {
 
   writeConfigIfNotExists()
 
-  val dbConfig = dbConfigProvider.get[JdbcProfile]
-  val db = dbConfig.db
-
   private def writeConfigIfNotExists(): Unit = {
-    val file = new File(Conf.confFilePath)
+    val file = new File(pathConf.confFilePath)
     if (!file.exists()) {
       try {
-        new PrintWriter(Conf.confFilePath) {
+        new PrintWriter(pathConf.confFilePath) {
           Json.format[Conf]
           write(Json.prettyPrint(Json.toJson(config)))
           close()
