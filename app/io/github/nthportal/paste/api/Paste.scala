@@ -3,7 +3,7 @@ package io.github.nthportal.paste.api
 import models.PasteDatum
 
 case class Paste(metadata: PasteMetadata, lifecycle: PasteLifecycleInfo, body: String) {
-  def toDatum(readId: String) = {
+  def toDatumWithId(readId: String) = {
     PasteDatum(
       readId = readId,
       title = metadata.title,

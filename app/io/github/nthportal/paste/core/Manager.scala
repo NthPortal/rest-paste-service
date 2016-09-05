@@ -27,6 +27,7 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
       case e: FileNotFoundException => Logger.warn("Missing configuration file"); throw e
       case e: JsonProcessingException => Logger.error("Poorly formatted configuration file", e); throw e
       case e: IOException => Logger.error("I/O Exception reading configuration file", e); throw e
+      case t: Throwable => Logger.error("Unknown error reading configuration file", t); throw t
     } getOrElse Conf()
 
   writeConfigIfNotExists()
