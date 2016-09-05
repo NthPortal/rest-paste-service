@@ -39,6 +39,7 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
     } getOrElse Conf()
 
   writeConfig(config, pathConf.confFilePath, overwrite = false)
+  writeConfig(Conf(), pathConf.defaultConfFilePath, overwrite = true)
 
   def deletePasteFileLater(revisionId: String): Future[Unit] = {
     for {
