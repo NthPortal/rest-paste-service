@@ -68,27 +68,35 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
     ???
   }
 
-  private def dataForWriteId(writeId: String): Future[PasteDatum] =
-    for {
-      writeOpt <- manager.db.run(PasteWriteData.withWriteId(writeId))
-      writeInfo <- Future.fromTry(Try(writeOpt.get))
-      datum <- dataForReadId(writeInfo.readId)
-    } yield datum
-
-  private def dataForReadId(readId: String): Future[PasteDatum] =
-    // TODO: check expiration
-    for {
-      datumOpt <- manager.db.run(PasteData.withReadId(readId))
-      datum <- Future.fromTry(Try(datumOpt.get))
-    } yield datum
-
-  def getPaste(readId: String) = Action.async({
+  def pasteForReadId(readId: String) = Action.async({
     for {
       datum <- dataForReadId(readId)
     } yield getPasteFromFile(datum)
   } recover {
     case _ => NotFound
   })
+
+  def pasteForWriteId(writeId: String) = Action.async({
+    for {
+      datum <-dataForWriteId(writeId)
+    } yield getPasteFromFile(datum)
+  } recover {
+    case _ => NotFound
+  })
+
+  private def dataForWriteId(writeId: String): Future[PasteDatum] =
+    for {
+      writeOpt <- db.run(PasteWriteData.withWriteId(writeId))
+      writeInfo <- Future.fromTry(Try(writeOpt.get))
+      datum <- dataForReadId(writeInfo.readId)
+    } yield datum
+
+  private def dataForReadId(readId: String): Future[PasteDatum] =
+  // TODO: check expiration
+    for {
+      datumOpt <- db.run(PasteData.withReadId(readId))
+      datum <- Future.fromTry(Try(datumOpt.get))
+    } yield datum
 
   private def getPasteFromFile(datum: PasteDatum): Result = {
     val body = Source.fromFile(manager.pathConf.pasteDir + File.separator + datum.readId).mkString
