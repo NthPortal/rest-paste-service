@@ -111,11 +111,24 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
     } yield datum
 
   private def dataForReadId(readId: String): Future[PasteDatum] =
-  // TODO: check expiration
     for {
       datumOpt <- db.run(PasteData.getWithReadId(readId))
       datum <- futureFromOption(datumOpt)
-    } yield datum
+      nonExpired <- dataIfNotExpired(datum)
+    } yield nonExpired
+
+  private def dataIfNotExpired(datum: PasteDatum): Future[PasteDatum] = {
+    for {
+      expiration <- futureFromOption(datum.unixExpiration)
+      if expiration < System.currentTimeMillis()
+      _ <- deletePasteData(datum)
+    } yield false
+  } recover {
+    case e: NoSuchElementException => true
+  } map {
+    case true => datum
+    case false => throw new Exception("Expired paste")
+  }
 
   private def getPasteFromFile(datum: PasteDatum): Result = {
     val body = Source.fromFile(pathConf.pasteFile(datum.readId)).mkString
