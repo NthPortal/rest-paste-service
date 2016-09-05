@@ -7,10 +7,10 @@ import io.github.nthportal.paste.api.{Paste, PasteIds, PasteLifecycleInfo, Paste
 import io.github.nthportal.paste.core._
 import models.{PasteData, PasteDatum, PasteWriteData}
 import org.apache.commons.io.FileUtils
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import play.api.libs.json.Json
 import play.api.mvc._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.io.Source
 import scala.util.Try
@@ -32,7 +32,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
 
   private def createNewPaste(paste: Paste): Future[Result] = {
     for {
-      pair <- idManager.unusedRandomIdPair
+      pair <- idManager.unusedRandomIdPair()
       _ = writeToFile(pathConf.pasteFile(pair.readId), paste.body)
       datum = paste.toDatumWithId(pair.readId)
       _ <- db.run(PasteData.insertOrUpdate(datum))

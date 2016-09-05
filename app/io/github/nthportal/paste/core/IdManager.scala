@@ -7,14 +7,14 @@ import javax.inject.{Inject, Singleton}
 
 import models.{PasteData, PasteWriteData}
 import org.apache.commons.codec.binary.Base64
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.annotation.tailrec
 import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 @Singleton
-class IdManager @Inject() (manager: Manager){
+class IdManager @Inject()(manager: Manager) {
   private val maxAttempts = 20
   private val random = new SecureRandom
   private val readIds: Future[util.Set[String]] = {
@@ -52,7 +52,7 @@ class IdManager @Inject() (manager: Manager){
     *
     * @return a [[Future]] containing a pair of random IDs
     */
-  def unusedRandomIdPair(implicit ec: ExecutionContext): Future[IdPair] = {
+  def unusedRandomIdPair(): Future[IdPair] = {
     for {
       readIdSet <- readIds
       writeIdSet <- writeIds
@@ -60,8 +60,7 @@ class IdManager @Inject() (manager: Manager){
   }
 
   @tailrec
-  private def unusedRandomIdPair(attempts: Int, readIds: util.Set[String], writeIds: util.Set[String])
-                                (implicit ec: ExecutionContext): IdPair = {
+  private def unusedRandomIdPair(attempts: Int, readIds: util.Set[String], writeIds: util.Set[String]): IdPair = {
     if (attempts > maxAttempts) throw new RuntimeException("Too many attempts to generate an unused random ID pair")
 
     val pair = randomIdPair
