@@ -1,7 +1,6 @@
 package controllers
 
 import java.io.{File, PrintWriter}
-import java.util.UUID
 import javax.inject.{Inject, Singleton}
 
 import io.github.nthportal.paste.api.{Paste, PasteIds, PasteLifecycleInfo, PasteMetadata}
@@ -37,7 +36,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   private def doCreatePaste(paste: Paste): Future[Result] = {
     for {
       pair <- idManager.unusedRandomIdPair()
-      revision = UUID.randomUUID()
+      revision = idManager.randomRevisionId
       _ = writeToFile(pathConf.pasteFile(revision), paste.body)
       datum = paste.toDatumWithIds(pair.readId, revision)
       _ <- db.run(PasteData += datum)
@@ -73,7 +72,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
     val metadata = paste.metadata
     val lifecycle = paste.lifecycle
     val newDatum = oldDatum.copy(
-      revision = UUID.randomUUID(),
+      revisionId = idManager.randomRevisionId,
       title = metadata.title orElse oldDatum.title,
       author = metadata.author orElse oldDatum.author,
       description = metadata.description orElse oldDatum.description,
@@ -81,10 +80,10 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
       editable = lifecycle.editable getOrElse oldDatum.editable,
       unixExpiration = lifecycle.expiresAfter orElse oldDatum.unixExpiration)
 
-    writeToFile(pathConf.pasteFile(newDatum.revision), paste.body)
+    writeToFile(pathConf.pasteFile(newDatum.revisionId), paste.body)
     for {
       _ <- db.run(PasteData.update(newDatum))
-      _ <- manager.deletePasteFileLater(oldDatum.revision)
+      _ <- manager.deletePasteFileLater(oldDatum.revisionId)
     } yield Created("Updated paste")
   }
 
@@ -138,7 +137,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   }
 
   private def getPasteFromFile(datum: PasteDatum): Result = {
-    val body = Source.fromFile(pathConf.pasteFile(datum.revision)).mkString
+    val body = Source.fromFile(pathConf.pasteFile(datum.revisionId)).mkString
     val paste = Paste.fromDatumWithBody(datum, body)
     Ok(Json.toJson(paste))
   }
@@ -162,7 +161,7 @@ class PasteController @Inject()(manager: Manager, idManager: IdManager) extends 
   private def deletePasteData(datum: PasteDatum): Future[Unit] =
     for {
       _ <- db.run(PasteData.withReadId(datum.readId).delete)
-      _ <- manager.deletePasteFileLater(datum.revision)
+      _ <- manager.deletePasteFileLater(datum.revisionId)
     } yield Unit
 }
 

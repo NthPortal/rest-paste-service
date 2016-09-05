@@ -1,13 +1,12 @@
 package models
 
-import java.util.UUID
-
+import io.github.nthportal.paste.core.IdManager.{readIdLength, revisionIdLength}
 import slick.driver.SQLiteDriver.api._
 import slick.lifted.Tag
 
 class PasteData(tag: Tag) extends Table[PasteDatum](tag, "READ_DATA") {
-  def readId = column[String]("READ_ID", O.PrimaryKey)
-  def fileRevision = column[UUID]("FILE_REVISION")
+  def readId = column[String]("READ_ID", O.PrimaryKey, O.Length(readIdLength, varying = false))
+  def fileRevision = column[String]("FILE_REVISION_ID", O.Length(revisionIdLength, varying = false))
   def title = column[Option[String]]("TITLE", O.Default(None))
   def author = column[Option[String]]("AUTHOR", O.Default(None))
   def description = column[Option[String]]("DESCRIPTION", O.Default(None))

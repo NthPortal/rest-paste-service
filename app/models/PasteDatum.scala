@@ -1,9 +1,7 @@
 package models
 
-import java.util.UUID
-
 case class PasteDatum(readId: String,
-                      revision: UUID,
+                      revisionId: String,
                       title: Option[String],
                       author: Option[String],
                       description: Option[String],

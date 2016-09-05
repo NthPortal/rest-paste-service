@@ -1,7 +1,6 @@
 package io.github.nthportal.paste.core
 
 import java.io.{File, FileNotFoundException, IOException, PrintWriter}
-import java.util.UUID
 import javax.inject.{Inject, Singleton}
 
 import com.fasterxml.jackson.core.JsonProcessingException
@@ -38,9 +37,9 @@ class Manager @Inject()(val pathConf: PathConf, dbConfigProvider: DatabaseConfig
 
   writeConfigIfNotExists()
 
-  def deletePasteFileLater(fileRevision: UUID): Future[Unit] = {
+  def deletePasteFileLater(revisionId: String): Future[Unit] = {
     for {
-      _ <- db.run(DeadPasteFiles += fileRevision)
+      _ <- db.run(DeadPasteFiles += revisionId)
     // TODO: put it somewhere else as well? (and like, actually delete it)
     } yield Unit
   }

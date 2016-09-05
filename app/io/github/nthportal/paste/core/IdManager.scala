@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.{Inject, Singleton}
 
 import models.{PasteData, PasteWriteData}
-import org.apache.commons.codec.binary.Base64
+import org.apache.commons.codec.binary.{Base64, Hex}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.annotation.tailrec
@@ -30,6 +30,12 @@ class IdManager @Inject()(manager: Manager) {
       seq <- manager.db.run(PasteWriteData.ids)
       _ = set.addAll(seq)
     } yield set
+  }
+
+  def randomRevisionId: String = {
+    val bytes = Array.ofDim[Byte](16)
+    random.nextBytes(bytes)
+    Hex.encodeHexString(bytes)
   }
 
   /**
@@ -75,4 +81,10 @@ class IdManager @Inject()(manager: Manager) {
       unusedRandomIdPair(attempts + 1, readIds, writeIds)
     }
   }
+}
+
+object IdManager {
+  val readIdLength = 6
+  val writeIdLength = 10
+  val revisionIdLength = 32
 }
