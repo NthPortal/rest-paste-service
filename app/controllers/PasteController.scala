@@ -5,26 +5,29 @@ import javax.inject.{Inject, Singleton}
 
 import io.github.nthportal.paste.api.{Paste, PasteIds, PasteLifecycleInfo, PasteMetadata}
 import io.github.nthportal.paste.core._
-import io.github.nthportal.paste.core.conf.Limits
+import io.github.nthportal.paste.core.conf.{Conf, Limits, PathConf}
 import models.{PasteData, PasteDatum, PasteWriteData}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.Json
 import play.api.mvc._
 import resource._
+import slick.backend.DatabaseConfig
+import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
 import scala.io.Source
 import scala.util.Try
 
 @Singleton
-class PasteController @Inject()(manager: Manager, idManager: IdManager) extends Controller {
-
+class PasteController @Inject()(conf: Conf,
+                                pathConf: PathConf,
+                                dbConfig: DatabaseConfig[JdbcProfile],
+                                manager: PasteManager,
+                                idManager: IdManager) extends Controller {
   import PasteController._
-  import manager.dbConfig.driver.api._
+  import dbConfig.driver.api._
 
-  private val db = manager.db
-  private val conf = manager.config
-  private val pathConf = manager.pathConf
+  private val db = dbConfig.db
 
   def createPaste = Action.async(parse.json) {
     implicit request => {

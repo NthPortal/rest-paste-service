@@ -8,27 +8,28 @@ import javax.inject.{Inject, Singleton}
 import models.{PasteData, PasteWriteData}
 import org.apache.commons.codec.binary.{Base64, Hex}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import slick.jdbc.JdbcBackend
 
 import scala.annotation.tailrec
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
 @Singleton
-class IdManager @Inject()(manager: Manager) {
+class IdManager @Inject()(db: JdbcBackend#DatabaseDef) {
   import IdManager._
 
   private val random = new SecureRandom
   private val readIds: Future[util.Set[String]] = {
     val set = ConcurrentHashMap.newKeySet[String]()
     for {
-      seq <- manager.db.run(PasteData.ids)
+      seq <- db.run(PasteData.ids)
       _ = set.addAll(seq)
     } yield set
   }
   private val writeIds: Future[util.Set[String]] = {
     val set = ConcurrentHashMap.newKeySet[String]()
     for {
-      seq <- manager.db.run(PasteWriteData.ids)
+      seq <- db.run(PasteWriteData.ids)
       _ = set.addAll(seq)
     } yield set
   }
