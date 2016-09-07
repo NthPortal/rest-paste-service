@@ -1,4 +1,4 @@
-package modules
+package io.github.nthportal.paste.core
 
 import com.google.inject.{AbstractModule, Provides}
 import io.github.nthportal.paste.core.conf.{Conf, ConfProvider, PathConf, PathConfProvider}

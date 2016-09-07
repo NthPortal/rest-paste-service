@@ -10,7 +10,7 @@ import slick.driver.JdbcProfile
 import scala.concurrent.Future
 
 @Singleton
-class PasteManager @Inject()(dbConfig: DatabaseConfig[JdbcProfile]) {
+class PasteManager @Inject() private[core](dbConfig: DatabaseConfig[JdbcProfile]) {
   import dbConfig.driver.api._
 
   val db = dbConfig.db

@@ -6,7 +6,7 @@ import javax.inject.Provider
 import org.apache.commons.io.FileUtils
 import play.api.Logger
 
-class PathConfProvider(baseDir: String) extends Provider[PathConf] {
+class PathConfProvider private[core](baseDir: String) extends Provider[PathConf] {
   override def get(): PathConf = PathConf(baseDir)
 
   /**

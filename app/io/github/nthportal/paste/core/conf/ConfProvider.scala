@@ -11,7 +11,7 @@ import resource._
 import scala.io.Source
 import scala.util.Try
 
-class ConfProvider @Inject()(pathConf: PathConf) extends Provider[Conf] {
+class ConfProvider @Inject() private[core](pathConf: PathConf) extends Provider[Conf] {
   import ConfProvider._
 
   val config: Conf =

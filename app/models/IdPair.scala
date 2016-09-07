@@ -1,3 +1,3 @@
-package io.github.nthportal.paste.core
+package models
 
 case class IdPair(readId: String, writeId: String)

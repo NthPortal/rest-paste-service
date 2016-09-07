@@ -1,7 +1,6 @@
 package models
 
 import io.github.nthportal.paste.core.IdManager.{readIdLength, writeIdLength}
-import io.github.nthportal.paste.core.IdPair
 import slick.driver.SQLiteDriver.api._
 import slick.lifted.Tag
 

@@ -5,7 +5,7 @@ import java.util
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.{Inject, Singleton}
 
-import models.{PasteData, PasteWriteData}
+import models.{IdPair, PasteData, PasteWriteData}
 import org.apache.commons.codec.binary.{Base64, Hex}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import slick.jdbc.JdbcBackend
@@ -15,7 +15,7 @@ import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
 @Singleton
-class IdManager @Inject()(db: JdbcBackend#DatabaseDef) {
+class IdManager @Inject() private[core](db: JdbcBackend#DatabaseDef) {
   import IdManager._
 
   private val random = new SecureRandom

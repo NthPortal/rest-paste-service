@@ -1,8 +1,8 @@
 package io.github.nthportal.paste.core.conf
 
-case class Conf(maxTotalPasteBodyDiskUsageKB: Long = 5000000L,
-                perIPLimits: Limits = Limits(),
-                authenticatedLimits: Limits = Limits()) {
+case class Conf private[core](maxTotalPasteBodyDiskUsageKB: Long = 5000000L,
+                              perIPLimits: Limits = Limits(),
+                              authenticatedLimits: Limits = Limits()) {
   val static = Conf.Static
 }
 
