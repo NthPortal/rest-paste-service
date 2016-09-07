@@ -1,5 +1,5 @@
-name := """rest-paste-service"""
-
+organization := "io.github.nthportal"
+name := "rest-paste-service"
 version := "1.0.0-SNAPSHOT"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)

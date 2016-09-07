@@ -1,11 +1,22 @@
 /*
-!/app
-!/app-2.11
-!/conf
-!/public
-!/test
-!/test-2.11
+
+# Main project files
+!/app/
+!/app-2.11/
+!/conf/
+!/public/
+!/test/
+!/test-2.11/
+
+# Build files
+!/project/
+/project/*
+!/project/build.properties
+!/project/plugins.sbt
+!/project/sbt-ui.sbt
 !build.sbt
+
+# Misc repo files
 !/*.md
 !.gitignore
 !LICENSE
