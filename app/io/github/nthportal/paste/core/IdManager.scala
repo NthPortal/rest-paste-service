@@ -15,7 +15,8 @@ import scala.concurrent.Future
 
 @Singleton
 class IdManager @Inject()(manager: Manager) {
-  private val maxAttempts = 20
+  import IdManager._
+
   private val random = new SecureRandom
   private val readIds: Future[util.Set[String]] = {
     val set = ConcurrentHashMap.newKeySet[String]()
@@ -33,7 +34,7 @@ class IdManager @Inject()(manager: Manager) {
   }
 
   def randomRevisionId: String = {
-    val bytes = Array.ofDim[Byte](16)
+    val bytes = Array.ofDim[Byte](revisionIdBytes)
     random.nextBytes(bytes)
     Hex.encodeHexString(bytes)
   }
@@ -45,10 +46,10 @@ class IdManager @Inject()(manager: Manager) {
     * @return a pair of random IDs
     */
   private def randomIdPair: IdPair = {
-    val bytes = Array.ofDim[Byte](12)
+    val bytes = Array.ofDim[Byte](idPairBytes)
     random.nextBytes(bytes)
     val str = Base64.encodeBase64URLSafeString(bytes)
-    IdPair(str.substring(0, 6), str.substring(6))
+    IdPair(str.substring(0, readIdLength), str.substring(readIdLength))
   }
 
   /**
@@ -84,7 +85,21 @@ class IdManager @Inject()(manager: Manager) {
 }
 
 object IdManager {
+  private val maxAttempts = 20
+
+  private val revisionIdBytes = 16
+  private val idPairBytes = 12
+
   val readIdLength = 6
   val writeIdLength = 10
-  val revisionIdLength = 32
+  val revisionIdLength = revisionIdBytes * 2
+
+  // Check that id lengths are valid
+  {
+    val idLengthSum = readIdLength + writeIdLength
+    assert(idLengthSum % 4 == 0, "Sum of RW id lengths must be a multiple of 4; is actually " + idLengthSum)
+    val lengthBytes = idLengthSum / 4 * 3
+    assert(lengthBytes == idPairBytes, "Sum of RW id lengths must match the number of bytes in an id pair; " +
+      "id length sum bytes (" + lengthBytes + ") != id pair bytes (" + idPairBytes + ")")
+  }
 }
