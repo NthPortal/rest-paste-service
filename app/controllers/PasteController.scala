@@ -29,15 +29,18 @@ class PasteController @Inject()(conf: Conf,
 
   private val db = dbConfig.db
 
+  private def limitsForRequest(implicit request: Request[_]) = {
+    conf.perIPLimits // TODO: get limits based on authentication
+  }
+
   def createPaste = Action.async(parse.json) {
     implicit request => {
       for (paste <- pasteFormat.reads(request.body)) yield createPasteCheckPreconditions(paste)
     } getOrElse Future.successful(BadRequest)
   }
 
-  private def createPasteCheckPreconditions(paste: Paste): Future[Result] = {
-    // TODO: get limits based on authentication
-    checkPreconditions(paste, conf.perIPLimits) getOrElse doCreatePaste(paste)
+  private def createPasteCheckPreconditions[_: Request](paste: Paste): Future[Result] = {
+    checkPreconditions(paste) getOrElse doCreatePaste(paste)
   }
 
   private def doCreatePaste(paste: Paste): Future[Result] = {
@@ -61,7 +64,7 @@ class PasteController @Inject()(conf: Conf,
     } getOrElse Future.successful(BadRequest)
   }
 
-  private def modifyPasteGetData(writeId: String, paste: Paste): Future[Result] = {
+  private def modifyPasteGetData[_: Request](writeId: String, paste: Paste): Future[Result] = {
     for {
       datum <- dataForWriteId(writeId)
       res <- modifyPasteCheckPreconditions(datum, paste)
@@ -70,12 +73,11 @@ class PasteController @Inject()(conf: Conf,
     case _ => NotFound
   }
 
-  private def modifyPasteCheckPreconditions(datum: PasteDatum, paste: Paste): Future[Result] = {
+  private def modifyPasteCheckPreconditions[_: Request](datum: PasteDatum, paste: Paste): Future[Result] = {
     if (!datum.editable){
       Future.successful(Forbidden("Paste is not editable"))
     } else {
-      // TODO: get limits based on authentication
-      checkPreconditions(paste, conf.perIPLimits) getOrElse doModifyPaste(datum, paste)
+      checkPreconditions(paste) getOrElse doModifyPaste(datum, paste)
     }
   }
 
@@ -98,7 +100,8 @@ class PasteController @Inject()(conf: Conf,
     } yield Created("Updated paste")
   }
 
-  private def checkPreconditions(paste: Paste, limits: Limits): Option[Future[Result]] = {
+  private def checkPreconditions[_: Request](paste: Paste): Option[Future[Result]] = {
+    val limits = limitsForRequest
     checkPasteDataLimits(paste, limits)
       .orElse(checkUserLimits(limits))
       .orElse(checkLifecyclePreconditions(paste))
@@ -109,9 +112,10 @@ class PasteController @Inject()(conf: Conf,
     if (limits.maxPasteSizeKB.isDefined && paste.body.length > limits.maxPasteSizeKB.get) {
       Some(Future.successful(EntityTooLarge("Paste body too large - max size is " + limits.maxPasteSizeKB + "kB")))
     } else {
-      checkLengthLimit(conf.static.maxTitleLengthChars, metadata.title, "title")
-        .orElse(checkLengthLimit(conf.static.maxAuthorLengthChars, metadata.author, "author"))
-        .orElse(checkLengthLimit(conf.static.maxDescriptionLengthChars, metadata.description, "description"))
+      import conf.static._
+      checkLengthLimit(maxTitleLengthChars, metadata.title, "title")
+        .orElse(checkLengthLimit(maxAuthorLengthChars, metadata.author, "author"))
+        .orElse(checkLengthLimit(maxDescriptionLengthChars, metadata.description, "description"))
     }
   }
 
